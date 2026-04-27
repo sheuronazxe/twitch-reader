@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Twitch Reader</title>
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* ================================================================
+           1. Design System - CSS Custom Properties
+           ================================================================ */
+        :root {
+            /* Colors - Light Theme */
+            --bg: #f3f4f6;
+            --surface: #ffffff;
+            --border: #e5e7eb;
+            --text: #111827;
+            --text-secondary: #4b5563;
+            --text-muted: #9ca3af;
+            --twitch: #9146ff;
+            --twitch-hover: #7b2bf9;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --success: #10b981;
+
+            /* Shadows */
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+            /* Radius */
+            --radius: 12px;
+            --radius-sm: 8px;
+            --radius-full: 9999px;
+
+            /* Log Colors */
+            --log-bg: #1e1e2e;
+            --log-text: #cdd6f4;
+            --log-time: #6c7086;
+            --log-system: #89b4fa;
+            --log-bits: #fab387;
+            --log-filtered: #f38ba8;
+
+            /* Badge Colors */
+            --badge-bits-bg: #fef3c7;
+            --badge-bits-text: #92400e;
+            --badge-mod-bg: #d1fae5;
+            --badge-mod-text: #065f46;
+            --badge-vip-bg: #fee2e2;
+            --badge-vip-text: #991b1b;
+            --badge-sub-bg: #f3e8ff;
+            --badge-sub-text: #6b21a8;
+            --badge-broadcaster-bg: #ffe4e6;
+            --badge-broadcaster-text: #9f1239;
+        }
+
+        .dark-theme {
+            --bg: #0f1014;
+            --surface: #18191e;
+            --border: #27282f;
+            --text: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --text-muted: #6b7280;
+            --twitch: #a970ff;
+            --twitch-hover: #bf94ff;
+
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+
+            --log-bg: #0b0c0f;
+
+            --badge-bits-bg: #453303;
+            --badge-bits-text: #fde68a;
+            --badge-mod-bg: #064e3b;
+            --badge-mod-text: #a7f3d0;
+            --badge-vip-bg: #450a0a;
+            --badge-vip-text: #fecaca;
+            --badge-sub-bg: #3b0764;
+            --badge-sub-text: #e9d5ff;
+            --badge-broadcaster-bg: #4c0519;
+            --badge-broadcaster-text: #fecdd3;
+        }
+
+        /* ================================================================
+           2. Reset & Base Styles
+           ================================================================ */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.5;
+            padding: 32px 24px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .app-container {
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        /* ================================================================
+           3. Utility Classes (Spacing, Flex, Text)
+           ================================================================ */
+        .d-flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .flex-wrap { flex-wrap: wrap; }
+        .flex-1 { flex: 1; }
+        .justify-between { justify-content: space-between; }
+        .justify-center { justify-content: center; }
+        .align-center { align-items: center; }
+        .align-start { align-items: flex-start; }
+        .text-center { text-align: center; }
+        .w-full { width: 100%; }
+
+        .gap-2 { gap: 8px; }
+        .gap-3 { gap: 12px; }
+        .gap-4 { gap: 16px; }
+
+        .mt-3 { margin-top: 12px; }
+        .mt-4 { margin-top: 16px; }
+        .mt-6 { margin-top: 24px; }
+        .mb-3 { margin-bottom: 12px; }
+        .mb-4 { margin-bottom: 16px; }
+
+        .pt-4 { padding-top: 16px; }
+        .pt-0 { padding-top: 0; }
+        .pb-0 { padding-bottom: 0; }
+
+        .border-top { border-top: 1px solid var(--border); }
+        .border-none { border: none !important; }
+
+        .text-sm { font-size: 0.875rem; }
+        .text-xs { font-size: 0.75rem; }
+        .text-muted { color: var(--text-muted); }
+        .text-secondary { color: var(--text-secondary); }
+        .text-twitch { color: var(--twitch); }
+        .text-danger { color: var(--danger); }
+        .font-semibold { font-weight: 600; }
+        .font-bold { font-weight: 700; }
+
+        /* ================================================================
+           4. Components
+           ================================================================ */
+
+        /* Header */
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--twitch);
+            letter-spacing: -0.02em;
+        }
+        .header p {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .theme-toggle {
+            padding: 10px;
+            border-radius: 50%;
+            color: var(--text-secondary);
+            transition: all 0.2s;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        .theme-toggle:hover { background: var(--border); color: var(--text); }
+        .theme-toggle svg { width: 20px; height: 20px; }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        .card-title {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--twitch);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .card-title svg { width: 16px; height: 16px; }
+
+        /* Inputs & Buttons */
+        .input {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.9375rem;
+            font-family: inherit;
+            color: var(--text);
+            background: var(--bg);
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .input:focus {
+            outline: none;
+            border-color: var(--twitch);
+            box-shadow: 0 0 0 3px rgba(145, 70, 255, 0.15);
+        }
+        .input::placeholder { color: var(--text-muted); }
+
+        .input-sm {
+            width: 70px;
+            padding: 6px 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.875rem;
+            background: var(--bg);
+            color: var(--text);
+            transition: all 0.2s;
+        }
+        .input-sm:focus {
+            outline: none;
+            border-color: var(--twitch);
+            box-shadow: 0 0 0 2px rgba(145, 70, 255, 0.15);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 10px 18px;
+            border: none;
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:active { transform: translateY(0); }
+        .btn-primary { background: var(--twitch); color: white; }
+        .btn-primary:hover { background: var(--twitch-hover); box-shadow: 0 4px 12px rgba(145, 70, 255, 0.3); }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+        .btn-ghost:hover { background: var(--border); color: var(--text); }
+        .btn-sm { padding: 6px 12px; font-size: 0.75rem; }
+
+        /* Status indicator */
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background-color 0.3s;
+        }
+        .status-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+        .status-dot.connecting {
+            background: var(--warning);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Settings Row */
+        .setting {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .setting:last-child { border-bottom: none; padding-bottom: 0; }
+        .setting:first-child { padding-top: 0; }
+
+        /* Checkbox */
+        .simple-checkbox {
+            display: inline-flex;
+            align-items: flex-start;
+            gap: 10px;
+            cursor: pointer;
+        }
+        .simple-checkbox input[type="checkbox"] {
+            appearance: none;
+            -webkit-appearance: none;
+            background-color: var(--bg);
+            margin: 2px 0 0 0;
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            display: grid;
+            place-content: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+        }
+        .simple-checkbox input[type="checkbox"]::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            transform: scale(0);
+            transition: 120ms transform ease-in-out;
+            background-color: white;
+            clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+        }
+        .simple-checkbox input[type="checkbox"]:checked {
+            background-color: var(--twitch);
+            border-color: var(--twitch);
+        }
+        .simple-checkbox input[type="checkbox"]:checked::before { transform: scale(1); }
+        .simple-checkbox:hover input[type="checkbox"]:not(:checked) { border-color: var(--text-muted); }
+        .checkbox-text { display: flex; flex-direction: column; line-height: 1.3; }
+        .checkbox-label { font-size: 0.9375rem; color: var(--text); user-select: none; font-weight: 500; }
+        .checkbox-desc { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+
+        /* Select */
+        select.input {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%239ca3af' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            padding-right: 36px;
+        }
+
+        /* Details / Summary */
+        details { width: 100%; }
+        details summary {
+            font-size: 0.8125rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-secondary);
+            cursor: pointer;
+            list-style: none;
+            display: flex;
+            align-items: center;
+            user-select: none;
+            outline: none;
+            transition: color 0.2s;
+        }
+        details summary:hover { color: var(--twitch); }
+        details summary::-webkit-details-marker { display: none; }
+        details summary::before {
+            content: '▶';
+            font-size: 0.7em;
+            margin-right: 8px;
+            transition: transform 0.2s ease;
+        }
+        details[open] summary::before { transform: rotate(90deg); }
+        .details-content {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border);
+            animation: slideDown 0.3s ease;
+        }
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Slider */
+        .slider-wrap { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+        .slider-wrap input[type="range"] {
+            flex: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            outline: none;
+            transition: background 0.2s;
+        }
+        .slider-wrap input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--twitch);
+            border-radius: 50%;
+            cursor: pointer;
+            border: 2px solid var(--surface);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+        .slider-wrap input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.1); }
+        .slider-value {
+            min-width: 44px;
+            text-align: right;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            font-variant-numeric: tabular-nums;
+            font-weight: 500;
+        }
+
+        /* Tags */
+        .tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: var(--radius-full);
+            font-size: 0.8125rem;
+            font-weight: 500;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            color: var(--text);
+            transition: all 0.2s;
+        }
+        .tag:hover { border-color: var(--text-muted); }
+        .tag .remove {
+            cursor: pointer;
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            line-height: 1;
+            transition: color 0.2s;
+            background: none;
+            border: none;
+            padding: 0;
+        }
+        .tag .remove:hover { color: var(--danger); }
+
+        /* Current Message Display */
+        .current {
+            background: var(--log-bg);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: var(--radius);
+            padding: 20px;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            color: var(--log-text);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .current.idle { border-color: rgba(255,255,255,0.05); }
+        .current.speaking {
+            border-color: var(--twitch);
+            box-shadow: 0 0 0 3px rgba(145, 71, 255, 0.15), inset 0 1px 0 rgba(255,255,255,0.05);
+            transform: scale(1.01);
+        }
+        .current-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+        .current-user { font-weight: 700; font-size: 0.9375rem; letter-spacing: 0.02em; }
+        .current-text { font-size: 1.125rem; word-break: break-word; line-height: 1.4; }
+        .current-text.empty {
+            color: var(--log-time);
+            font-style: italic;
+            font-size: 0.9375rem;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.625rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .badge-bits { background: var(--badge-bits-bg); color: var(--badge-bits-text); }
+        .badge-mod { background: var(--badge-mod-bg); color: var(--badge-mod-text); }
+        .badge-vip { background: var(--badge-vip-bg); color: var(--badge-vip-text); }
+        .badge-sub { background: var(--badge-sub-bg); color: var(--badge-sub-text); }
+        .badge-broadcaster { background: var(--badge-broadcaster-bg); color: var(--badge-broadcaster-text); }
+
+        /* Terminal Log */
+        .log-container {
+            border-radius: var(--radius);
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .log-header {
+            padding: 12px 16px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        .log {
+            background: var(--log-bg);
+            color: var(--log-text);
+            padding: 16px;
+            height: 250px;
+            overflow-y: auto;
+            font-family: 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+            font-size: 0.8125rem;
+            line-height: 1.6;
+            scroll-behavior: smooth;
+        }
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .log-entry:last-child { border-bottom: none; }
+        .log-time { color: var(--log-time); margin-right: 10px; font-size: 0.75rem; }
+        .log-system { color: var(--log-system); font-style: italic; }
+        .log-user { font-weight: 600; }
+        .log-bits { color: var(--log-bits); font-weight: 700; }
+        .log-filtered { color: var(--log-filtered); opacity: 0.8; font-size: 0.75rem; margin-left: 6px; }
+
+        .log::-webkit-scrollbar { width: 8px; }
+        .log::-webkit-scrollbar-track { background: transparent; }
+        .log::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+        .log::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
+        /* Keyboard hints */
+        kbd.key {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: inherit;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            top: 24px;
+            right: 24px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            pointer-events: none;
+        }
+        .toast {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--twitch);
+            padding: 14px 20px;
+            border-radius: var(--radius);
+            box-shadow: var(--shadow-lg);
+            font-size: 0.875rem;
+            font-weight: 500;
+            max-width: 320px;
+            animation: toastIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            pointer-events: auto;
+        }
+        .toast.error { border-left-color: var(--danger); }
+        .toast.success { border-left-color: var(--success); }
+        .toast.warning { border-left-color: var(--warning); }
+        @keyframes toastIn {
+            from { opacity: 0; transform: translateX(20px) scale(0.95); }
+            to { opacity: 1; transform: translateX(0) scale(1); }
+        }
+        .toast.fade-out {
+            opacity: 0;
+            transform: translateX(20px);
+            transition: all 0.3s ease;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- Header -->
+    <header class="header d-flex justify-between align-start mb-4">
+        <div>
+            <h1>Twitch Reader</h1>
+            <p>Text-to-Speech inteligente para tu chat</p>
+        </div>
+        <button id="btnThemeToggle" class="btn-ghost theme-toggle" title="Cambiar tema" aria-label="Cambiar tema">
+        </button>
+    </header>
+
+    <!-- Block 1: Connection -->
+    <section class="card">
+        <div class="d-flex gap-2">
+            <input type="text" id="channelInput" data-setting="lastChannel" class="input" placeholder="Nombre de tu canal..." autocomplete="off" maxlength="25" aria-label="Nombre del canal">
+            <button id="btnConnect" class="btn btn-primary font-semibold">Conectar</button>
+        </div>
+        <div class="d-flex align-center gap-2 mt-3 text-sm text-secondary">
+            <span class="status-dot" id="statusDot" aria-hidden="true"></span>
+            <span id="statusText" class="font-semibold">Desconectado</span>
+        </div>
+    </section>
+
+    <!-- Block 2: Current Message & Dashboard -->
+    <section class="card">
+        <h2 class="card-title mb-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+            </svg>
+            Reproduciendo ahora
+        </h2>
+
+        <div class="current idle mb-4" id="currentBox" aria-live="polite">
+            <div class="current-meta" id="currentMeta"></div>
+            <div class="current-text empty" id="currentText">Esperando mensajes...</div>
+        </div>
+
+        <div class="d-flex justify-between align-center flex-wrap gap-3 pt-4 border-top">
+            <div class="d-flex gap-4 text-sm text-secondary">
+                <span>En cola: <span id="statQueue" class="text-twitch font-bold">0</span></span>
+                <span>Leídos: <span id="statRead" class="text-twitch font-bold">0</span></span>
+                <span>Bits: <span id="statBits" class="text-twitch font-bold">0</span></span>
+            </div>
+            <div class="d-flex gap-2">
+                <button id="btnClearQueue" class="btn btn-ghost btn-sm" title="Limpiar cola de mensajes">
+                    <kbd class="key">ESC</kbd> Limpiar
+                </button>
+                <button id="btnSkip" class="btn btn-ghost btn-sm" title="Saltar mensaje actual">
+                    <kbd class="key">SPACE</kbd> Saltar
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Block 3: Audio Settings -->
+    <section class="card">
+        <h2 class="card-title mb-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+            </svg>
+            Motor de Audio
+        </h2>
+
+        <select id="voiceSelect" data-setting="voiceName" class="input mb-3" aria-label="Seleccionar voz">
+            <option value="">Cargando voces...</option>
+        </select>
+
+        <details>
+            <summary>Ajustes de sonido avanzados</summary>
+            <div class="details-content">
+                <div class="mb-4">
+                    <div class="text-sm font-semibold mb-1">Volumen</div>
+                    <div class="slider-wrap">
+                        <input type="range" data-setting="volume" data-text-id="volValue" data-suffix="%" min="0" max="100" aria-label="Volumen">
+                        <span class="slider-value" id="volValue">100%</span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="text-sm font-semibold mb-1">Velocidad</div>
+                    <div class="slider-wrap">
+                        <input type="range" data-setting="rate" data-text-id="rateValue" data-suffix="x" min="0.5" max="2" step="0.1" aria-label="Velocidad">
+                        <span class="slider-value" id="rateValue">1.0x</span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="text-sm font-semibold mb-1">Tono (Pitch)</div>
+                    <div class="slider-wrap">
+                        <input type="range" data-setting="pitch" data-text-id="pitchValue" min="0.5" max="2" step="0.1" aria-label="Tono">
+                        <span class="slider-value" id="pitchValue">1.0</span>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <div class="text-sm font-semibold mb-1">Pausa entre mensajes</div>
+                    <div class="slider-wrap">
+                        <input type="range" data-setting="pauseMs" data-text-id="pauseValue" data-suffix="ms" min="0" max="3000" step="100" aria-label="Pausa entre mensajes">
+                        <span class="slider-value" id="pauseValue">500ms</span>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2 mt-4">
+                    <input type="text" id="previewText" class="input flex-1" placeholder="Escribe para probar..." value="Hola, esto es una prueba" aria-label="Texto de prueba">
+                    <button id="btnPreview" class="btn btn-primary">Probar Voz</button>
+                </div>
+            </div>
+        </details>
+    </section>
+
+    <!-- Block 4: Access Control -->
+    <section class="card mb-4">
+        <h2 class="card-title mb-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/>
+            </svg>
+            Lista Negra
+        </h2>
+        <div class="d-flex gap-2">
+            <input type="text" id="inputBlacklist" class="input flex-1" placeholder="Usuario a ignorar..." aria-label="Agregar usuario a lista negra">
+            <button id="btnAddBlacklist" class="btn btn-ghost">Añadir</button>
+            <button id="btnClearBlacklist" class="btn btn-ghost" title="Limpiar lista" aria-label="Limpiar lista negra">X</button>
+        </div>
+        <div class="tags" id="blacklistTags"></div>
+    </section>
+
+    <section class="card mb-4">
+        <h2 class="card-title mb-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            Lista Blanca
+        </h2>
+        <div class="mb-3">
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="whitelistMode">
+                <span class="checkbox-label text-sm">Activar lista blanca solo leerá usuarios en la lista blanca</span>
+            </label>
+        </div>
+        <div class="d-flex gap-2">
+            <input type="text" id="inputWhitelist" class="input flex-1" placeholder="Usuario permitido..." aria-label="Agregar usuario a lista blanca">
+            <button id="btnAddWhitelist" class="btn btn-ghost">Añadir</button>
+            <button id="btnClearWhitelist" class="btn btn-ghost" title="Limpiar lista" aria-label="Limpiar lista blanca">X</button>
+        </div>
+        <div class="tags" id="whitelistTags"></div>
+    </section>
+
+    <!-- Block 5: Filters & Conditions -->
+    <section class="card">
+        <h2 class="card-title mb-4">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filtros y Reglas
+        </h2>
+
+        <div class="setting pt-0">
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="mentionUser">
+                <div class="checkbox-text">
+                    <span class="checkbox-label">Mencionar al usuario</span>
+                    <span class="checkbox-desc">"Nombre dice: mensaje"</span>
+                </div>
+            </label>
+        </div>
+
+        <div class="setting">
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="bitsOnly">
+                <div class="checkbox-text">
+                    <span class="checkbox-label">Modo donaciones</span>
+                    <span class="checkbox-desc">Exigir un mínimo de bits para leer el mensaje</span>
+                </div>
+            </label>
+            <div class="d-flex align-center">
+                <input type="number" data-setting="minBits" class="input-sm" min="1" max="10000" title="Bits mínimos" aria-label="Bits mínimos">
+            </div>
+        </div>
+
+        <div class="setting">
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="ignoreUrls">
+                <span class="checkbox-label">Ignorar URLs</span>
+            </label>
+        </div>
+
+        <div class="setting">
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="ignoreEmotes">
+                <span class="checkbox-label">Ignorar emotes</span>
+            </label>
+        </div>
+
+        <div class="setting border-none pb-0">
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="ignoreCommands">
+                <span class="checkbox-label">Ignorar comandos (mensajes que inician con !)</span>
+            </label>
+        </div>
+
+        <!-- Role Exceptions -->
+        <h3 class="card-title mt-6 mb-3 text-sm">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Siempre leer a (Ignoran filtros restrictivos)
+        </h3>
+
+        <div class="d-flex flex-wrap gap-4">
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="alwaysBroadcaster">
+                <span class="checkbox-label font-semibold text-twitch">Streamer</span>
+            </label>
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="alwaysMod">
+                <span class="checkbox-label font-semibold">Moderadores</span>
+            </label>
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="alwaysVip">
+                <span class="checkbox-label font-semibold">VIPs</span>
+            </label>
+            <label class="simple-checkbox">
+                <input type="checkbox" data-setting="alwaysSub">
+                <span class="checkbox-label font-semibold">Subs</span>
+            </label>
+        </div>
+    </section>
+
+    <!-- Block 6: System Config -->
+    <section class="card">
+        <details>
+            <summary>Sistema y Respaldo</summary>
+            <div class="details-content">
+                <div class="setting">
+                    <span class="text-sm font-semibold">Límite de caracteres por mensaje</span>
+                    <input type="number" data-setting="maxChars" class="input-sm" min="10" max="500" aria-label="Límite de caracteres">
+                </div>
+                <div class="setting">
+                    <span class="text-sm font-semibold">Límite en cola (antiguos se descartan)</span>
+                    <input type="number" data-setting="queueLimit" class="input-sm" min="10" max="200" aria-label="Límite de cola">
+                </div>
+
+                <div class="d-flex gap-2 mt-4 pt-4 border-top">
+                    <button id="btnExportConfig" class="btn btn-ghost flex-1">Exportar JSON</button>
+                    <button id="btnImportConfig" class="btn btn-ghost flex-1">Importar</button>
+                    <button id="btnResetConfig" class="btn btn-ghost flex-1 text-danger">Valores fábrica</button>
+                    <input type="file" id="fileImportConfig" accept=".json" hidden>
+                </div>
+            </div>
+        </details>
+    </section>
+
+    <!-- Block 7: Terminal Log -->
+    <section class="log-container mb-4">
+        <div class="log-header d-flex justify-between align-center">
+            <h2 class="card-title m-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                </svg>
+                Registro de Actividad
+            </h2>
+            <button id="btnLogClear" class="btn btn-ghost btn-sm">Limpiar</button>
+        </div>
+        <div class="log" id="logBody" role="log" aria-live="polite" aria-label="Registro de actividad"></div>
+    </section>
+
+    <footer class="footer pt-4">
+        Twitch Reader by @sheuronazxe
+    </footer>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+/**
+ * Twitch Reader Pro - Refactored Edition
+ * Clean architecture with modular components
+ */
+
+// ============================================================================
+// Constants & Configuration
+// ============================================================================
+const STORAGE_KEY = 'tts_config_pro';
+const MAX_LOG_ENTRIES = 200;
+const MAX_RECONNECT_ATTEMPTS = 10;
+const WATCHDOG_TIMEOUT = 30000;
+const DEBOUNCE_DELAY = 300;
+
+const DEFAULTS = Object.freeze({
+    lastChannel: '',
+    voiceName: '',
+    volume: 100,
+    rate: 1.0,
+    pitch: 1.0,
+    pauseMs: 500,
+    mentionUser: true,
+    bitsOnly: false,
+    minBits: 1,
+    ignoreUrls: true,
+    ignoreEmotes: true,
+    ignoreCommands: true,
+    alwaysMod: true,
+    alwaysVip: true,
+    alwaysSub: true,
+    alwaysBroadcaster: true,
+    whitelistMode: false,
+    maxChars: 200,
+    queueLimit: 50,
+    darkMode: false,
+    blacklist: ['Nightbot', 'Moobot', 'StreamElements', 'Streamlabs'],
+    whitelist: []
+});
+
+// ============================================================================
+// Utility Functions (Pure Functions)
+// ============================================================================
+const escapeHtml = str => str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+
+const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+
+const sanitizeChannel = name => name.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 25);
+
+const debounce = (fn, delay) => {
+    let timeoutId;
+    return (...args) => {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => fn(...args), delay);
+    };
+};
+
+// ============================================================================
+// ConfigManager - State Persistence
+// ============================================================================
+class ConfigManager {
+    constructor() {
+        this.data = { ...DEFAULTS };
+        this.load();
+    }
+
+    load() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                // Only use keys that exist in DEFAULTS to prevent invalid config spreading
+                Object.keys(DEFAULTS).forEach(k => {
+                    if (k in parsed) this.data[k] = parsed[k];
+                });
+            }
+        } catch (e) {
+            console.warn('Error loading config:', e);
+        }
+    }
+
+    save() {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data));
+        } catch (e) {
+            console.warn('Error saving config:', e);
+        }
+    }
+
+    reset() {
+        localStorage.removeItem(STORAGE_KEY);
+        this.data = { ...DEFAULTS };
+    }
+}
+
+// ============================================================================
+// UI - User Interface Controller
+// ============================================================================
+class UI {
+    constructor(app) {
+        this.app = app;
+        this.config = app.config.data;
+        this.debouncedSave = debounce(() => this.app.config.save(), DEBOUNCE_DELAY);
+        this.elements = this.cacheElements();
+    }
+
+    cacheElements() {
+        return {
+            logBody: document.getElementById('logBody'),
+            toastContainer: document.getElementById('toastContainer'),
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            statQueue: document.getElementById('statQueue'),
+            statRead: document.getElementById('statRead'),
+            statBits: document.getElementById('statBits'),
+            currentBox: document.getElementById('currentBox'),
+            currentMeta: document.getElementById('currentMeta'),
+            currentText: document.getElementById('currentText')
+        };
+    }
+
+    init() {
+        this.bindDataSettings();
+        this.updateTheme();
+        this.renderTags('blacklistTags', this.config.blacklist);
+        this.renderTags('whitelistTags', this.config.whitelist);
+        this.setupEventDelegation();
+    }
+
+    /** Binds all [data-setting] elements to config */
+    bindDataSettings() {
+        document.querySelectorAll('[data-setting]').forEach(el => {
+            const key = el.dataset.setting;
+            const textDisplayEl = el.dataset.textId ? document.getElementById(el.dataset.textId) : null;
+            const suffix = el.dataset.suffix || '';
+
+            // Initial load
+            const initialVal = this.config[key];
+            if (el.type === 'checkbox') {
+                el.checked = initialVal;
+            } else {
+                el.value = initialVal;
+                if (textDisplayEl) textDisplayEl.textContent = initialVal + suffix;
+            }
+
+            // Sync state function
+            const syncState = () => {
+                let val = el.type === 'checkbox' ? el.checked : el.value;
+
+                if (el.type === 'number' || el.type === 'range') {
+                    val = Number(val) || 0;
+                    val = clamp(val, Number(el.min) || -Infinity, Number(el.max) || Infinity);
+                    el.value = val;
+                }
+
+                this.config[key] = val;
+                this.debouncedSave();
+                if (textDisplayEl) textDisplayEl.textContent = val + suffix;
+            };
+
+            // Event listeners
+            if (el.type === 'range' || el.type === 'number' || el.type === 'text') {
+                el.addEventListener('change', syncState);
+                el.addEventListener('input', () => {
+                    if (textDisplayEl) textDisplayEl.textContent = el.value + suffix;
+                });
+            } else {
+                el.addEventListener('change', syncState);
+            }
+        });
+    }
+
+    updateTheme() {
+        const isDark = this.config.darkMode;
+        document.documentElement.classList.toggle('dark-theme', isDark);
+
+        const btn = document.getElementById('btnThemeToggle');
+        btn.title = isDark ? 'Modo claro' : 'Modo oscuro';
+        btn.innerHTML = isDark
+            ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>`
+            : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+    }
+
+    toggleTheme() {
+        this.config.darkMode = !this.config.darkMode;
+        this.app.config.save();
+        this.updateTheme();
+    }
+
+    // Tag List Management
+    renderTags(containerId, items) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = items.map(item => {
+            const safe = escapeHtml(item);
+            return `<span class="tag">${safe} <button class="remove" data-item="${safe}" aria-label="Eliminar ${item}">&times;</button></span>`;
+        }).join('');
+    }
+
+    setupEventDelegation() {
+        const handleTagRemove = (e) => {
+            if (e.target.classList.contains('remove')) {
+                const item = e.target.dataset.item;
+                const listKey = e.target.closest('#blacklistTags') ? 'blacklist' : 'whitelist';
+                this.config[listKey] = this.config[listKey].filter(i => i !== item);
+                this.app.config.save();
+                this.renderTags(e.target.closest('.tags').id, this.config[listKey]);
+            }
+        };
+
+        document.getElementById('blacklistTags').addEventListener('click', handleTagRemove);
+        document.getElementById('whitelistTags').addEventListener('click', handleTagRemove);
+    }
+
+    addToList(listKey, inputId, tagId) {
+        const input = document.getElementById(inputId);
+        const val = input.value.trim();
+        if (!val) return;
+
+        const list = this.config[listKey];
+        if (!list.some(n => n.toLowerCase() === val.toLowerCase())) {
+            list.push(val);
+            this.app.config.save();
+            this.renderTags(tagId, list);
+        }
+        input.value = '';
+    }
+
+    // Status & Stats
+    setStatus(status, text) {
+        this.elements.statusDot.className = 'status-dot' + (status ? ' ' + status : '');
+        this.elements.statusText.textContent = text;
+    }
+
+    updateStats(queue, read, bits) {
+        this.elements.statQueue.textContent = queue;
+        this.elements.statRead.textContent = read;
+        this.elements.statBits.textContent = bits;
+    }
+
+    // Current Message Display
+    showCurrent(msg, isSpeaking) {
+        this.elements.currentBox.className = `current ${isSpeaking ? 'speaking' : 'idle'} mb-4`;
+
+        const badges = this.buildBadges(msg);
+        const color = this.isValidColor(msg.color) ? msg.color : 'var(--twitch)';
+
+        this.elements.currentMeta.innerHTML = badges +
+            (badges ? ' ' : '') +
+            `<span class="current-user" style="color:${color}">${escapeHtml(msg.displayName)}</span>`;
+        this.elements.currentText.textContent = msg.originalText;
+        this.elements.currentText.classList.remove('empty');
+    }
+
+    buildBadges(msg) {
+        const badges = [];
+        if (msg.isBroadcaster) badges.push('<span class="badge badge-broadcaster">Streamer</span>');
+        if (msg.isMod) badges.push('<span class="badge badge-mod">Mod</span>');
+        if (msg.isVip) badges.push('<span class="badge badge-vip">VIP</span>');
+        if (msg.isSub) badges.push('<span class="badge badge-sub">Sub</span>');
+        if (msg.bits > 0) badges.push(`<span class="badge badge-bits">${msg.bits} bits</span>`);
+        return badges.join('');
+    }
+
+    isValidColor(color) {
+        return /^#[0-9A-Fa-f]{6}$/.test(color);
+    }
+
+    clearCurrent() {
+        this.elements.currentBox.className = 'current idle mb-4';
+        this.elements.currentMeta.innerHTML = '';
+        this.elements.currentText.textContent = 'Esperando mensajes...';
+        this.elements.currentText.classList.add('empty');
+    }
+
+    // Logging
+    addLog(html, type = '') {
+        const entry = document.createElement('div');
+        entry.className = `log-entry ${type}`;
+        const time = new Date().toLocaleTimeString('es-ES', { hour12: false });
+
+        const typeClass = type === 'log-system' ? 'log-system' : '';
+        entry.innerHTML = `<span class="log-time">${time}</span><span class="${typeClass}">${html}</span>`;
+
+        const logBody = this.elements.logBody;
+        const shouldScroll = logBody.scrollHeight - logBody.clientHeight <= logBody.scrollTop + 50;
+
+        logBody.appendChild(entry);
+
+        if (shouldScroll) logBody.scrollTop = logBody.scrollHeight;
+        while (logBody.children.length > MAX_LOG_ENTRIES) logBody.firstChild.remove();
+    }
+
+    // Toast Notifications
+    toast(msg, type = '') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        toast.textContent = msg;
+        toast.setAttribute('role', 'alert');
+        this.elements.toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('fade-out');
+            setTimeout(() => toast.remove(), 300);
+        }, 3000);
+    }
+}
+
+// ============================================================================
+// TTS - Text-to-Speech Engine
+// ============================================================================
+class TTS {
+    constructor(app) {
+        this.app = app;
+        this.supported = 'speechSynthesis' in window;
+        this.voices = [];
+        this.queue = [];
+        this.isPlaying = false;
+        this.stats = { read: 0, bits: 0 };
+        this.watchdog = null;
+
+        if (this.supported) {
+            this.loadVoices();
+            speechSynthesis.onvoiceschanged = () => this.loadVoices();
+        } else {
+            setTimeout(() => this.app.ui.toast('TTS no soportado en tu navegador.', 'error'), 1000);
+        }
+    }
+
+    loadVoices() {
+        this.voices = speechSynthesis.getVoices();
+        if (!this.voices.length) {
+            setTimeout(() => this.loadVoices(), 100);
+            return;
+        }
+
+        const select = document.getElementById('voiceSelect');
+        select.innerHTML = '<option value="">Voz del sistema por defecto</option>';
+
+        this.voices.forEach(v => {
+            select.insertAdjacentHTML('beforeend', `<option value="${escapeHtml(v.name)}">${escapeHtml(v.name)} (${v.lang})</option>`);
+        });
+
+        // Auto-select Spanish voice if available
+        const saved = this.app.config.data.voiceName;
+        if (!saved) {
+            const es = this.voices.find(v => v.lang.startsWith('es') && (v.name.includes('Natural') || v.name.includes('Google')));
+            if (es) select.value = es.name;
+        } else if (this.voices.some(v => v.name === saved)) {
+            select.value = saved;
+        }
+    }
+
+    getVoice() {
+        const voiceName = this.app.config.data.voiceName;
+        return voiceName ? this.voices.find(v => v.name === voiceName) : null;
+    }
+
+    enqueue(msg) {
+        const config = this.app.config.data;
+
+        // Calculate priority based on user roles and bits
+        let priority = msg.bits > 0 ? 1000 + msg.bits : 0;
+        if (msg.isBroadcaster) priority += 500;
+        if (msg.isMod) priority += 400;
+        if (msg.isVip) priority += 300;
+        if (msg.isSub) priority += 200;
+        msg.priority = priority;
+
+        this.queue.push(msg);
+        this.queue.sort((a, b) => b.priority - a.priority);
+
+        if (this.queue.length > config.queueLimit) {
+            this.queue.pop();
+            this.app.ui.toast('Cola llena. Descartando mensaje antiguo.', 'warning');
+        }
+
+        this.updateUiStats();
+        this.process();
+    }
+
+    process() {
+        if (!this.supported || this.isPlaying || !this.queue.length) return;
+
+        this.isPlaying = true;
+        const msg = this.queue.shift();
+        const config = this.app.config.data;
+        this.updateUiStats();
+
+        // Build text with optional user mention
+        const text = config.mentionUser
+            ? (msg.bits > 0
+                ? `${msg.displayName} envió ${msg.bits} bits: ${msg.cleanText}`
+                : `${msg.displayName} dice: ${msg.cleanText}`)
+            : msg.cleanText;
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voice = this.getVoice();
+        if (voice) utterance.voice = voice;
+
+        utterance.rate = config.rate;
+        utterance.pitch = config.pitch;
+        utterance.volume = config.volume / 100;
+
+        utterance.onstart = () => {
+            this.app.ui.showCurrent(msg, true);
+            this.stats.read++;
+            this.stats.bits += msg.bits;
+            this.updateUiStats();
+        };
+
+        utterance.onend = () => this.finish();
+        utterance.onerror = (e) => {
+            if (e.error !== 'canceled') console.error('TTS error:', e.error);
+            this.finish();
+        };
+
+        speechSynthesis.speak(utterance);
+
+        // Safety watchdog
+        this.watchdog = setTimeout(() => {
+            if (this.isPlaying) {
+                speechSynthesis.cancel();
+                this.finish();
+            }
+        }, WATCHDOG_TIMEOUT);
+    }
+
+    finish() {
+        if (!this.isPlaying) return;
+
+        clearTimeout(this.watchdog);
+        this.isPlaying = false;
+        this.app.ui.clearCurrent();
+        this.updateUiStats();
+
+        if (this.queue.length > 0) {
+            setTimeout(() => this.process(), this.app.config.data.pauseMs);
+        }
+    }
+
+    skip() {
+        if (!this.supported || !this.isPlaying) return;
+        speechSynthesis.cancel();
+    }
+
+    clear() {
+        this.queue = [];
+        this.skip();
+        this.updateUiStats();
+    }
+
+    preview(text) {
+        if (!this.supported || !text) return;
+        speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voice = this.getVoice();
+        if (voice) utterance.voice = voice;
+        const config = this.app.config.data;
+        utterance.rate = config.rate;
+        utterance.pitch = config.pitch;
+        utterance.volume = config.volume / 100;
+        speechSynthesis.speak(utterance);
+    }
+
+    updateUiStats() {
+        this.app.ui.updateStats(this.queue.length + (this.isPlaying ? 1 : 0), this.stats.read, this.stats.bits);
+    }
+}
+
+// ============================================================================
+// TwitchClient - IRC WebSocket Connection
+// ============================================================================
+class TwitchClient {
+    constructor(app) {
+        this.app = app;
+        this.ws = null;
+        this.channel = '';
+        this.reconnectTimer = null;
+        this.attempts = 0;
+        this.intentional = false;
+    }
+
+    connect(channel) {
+        this.intentional = false;
+        clearTimeout(this.reconnectTimer);
+        this.channel = channel;
+        this.app.ui.setStatus('connecting', 'Conectando...');
+
+        try {
+            this.ws = new WebSocket('wss://irc-ws.chat.twitch.tv:443');
+
+            this.ws.onopen = () => {
+                this.attempts = 0;
+                this.ws.send('CAP REQ :twitch.tv/tags twitch.tv/commands');
+                this.ws.send('PASS oauth:null');
+                this.ws.send(`NICK justinfan${Math.floor(Math.random() * 99999)}`);
+                this.ws.send(`JOIN #${channel}`);
+                this.app.ui.setStatus('connected', `Conectado a #${channel}`);
+            };
+
+            this.ws.onmessage = e => this.handleStream(e.data);
+
+            this.ws.onclose = () => {
+                this.app.ui.setStatus('', 'Desconectado');
+                if (!this.intentional) this.reconnect();
+            };
+
+            this.ws.onerror = () => {
+                this.app.ui.setStatus('', 'Error de conexión');
+                this.app.ui.toast('Falló la conexión al servidor IRC.', 'error');
+            };
+        } catch (e) {
+            this.app.ui.toast('Excepción al crear WebSocket.', 'error');
+        }
+    }
+
+    disconnect() {
+        this.intentional = true;
+        clearTimeout(this.reconnectTimer);
+        if (this.ws) {
+            this.ws.close();
+            this.ws = null;
+        }
+        this.app.ui.setStatus('', 'Desconectado');
+    }
+
+    reconnect() {
+        if (this.attempts >= MAX_RECONNECT_ATTEMPTS) {
+            this.app.ui.toast('Excedidos los intentos de reconexión.', 'error');
+            return;
+        }
+
+        const delay = Math.min(1000 * Math.pow(2, this.attempts++), 30000);
+        this.app.ui.setStatus('connecting', `Reconectando en ${delay / 1000}s...`);
+        this.reconnectTimer = setTimeout(() => this.connect(this.channel), delay);
+    }
+
+    handleStream(data) {
+        data.split('\r\n').forEach(line => {
+            if (!line.trim()) return;
+
+            if (line.startsWith('PING')) {
+                this.ws.send(line.replace('PING', 'PONG'));
+            } else if (line.includes('PRIVMSG')) {
+                this.app.processRawMessage(line);
+            }
+        });
+    }
+}
+
+// ============================================================================
+// App - Main Application Controller
+// ============================================================================
+class App {
+    constructor() {
+        this.config = new ConfigManager();
+        this.ui = new UI(this);
+        this.tts = new TTS(this);
+        this.client = new TwitchClient(this);
+    }
+
+    init() {
+        this.ui.init();
+        this.bindEvents();
+        this.ui.addLog('Sistema inicializado. Listo para conectar.', 'log-system');
+    }
+
+    bindEvents() {
+        const $ = id => document.getElementById(id);
+
+        // Theme toggle
+        $('btnThemeToggle').addEventListener('click', () => this.ui.toggleTheme());
+
+        // Connection
+        const btnConn = $('btnConnect');
+        const inpChan = $('channelInput');
+
+        const toggleConn = () => {
+            if (this.client.ws && !this.client.intentional) {
+                this.client.disconnect();
+                this.tts.clear();
+                btnConn.textContent = 'Conectar';
+                btnConn.className = 'btn btn-primary font-semibold';
+            } else {
+                const channel = sanitizeChannel(inpChan.value);
+                if (!channel) {
+                    this.ui.toast('Nombre de canal inválido', 'error');
+                    return;
+                }
+                inpChan.value = channel;
+                this.config.data.lastChannel = channel;
+                this.config.save();
+                this.client.connect(channel);
+                btnConn.textContent = 'Desconectar';
+                btnConn.className = 'btn btn-danger font-semibold';
+            }
+        };
+
+        btnConn.addEventListener('click', toggleConn);
+        inpChan.addEventListener('keypress', e => {
+            if (e.key === 'Enter') toggleConn();
+        });
+
+        // Audio controls
+        $('btnClearQueue').addEventListener('click', () => {
+            this.tts.clear();
+            this.ui.addLog('Cola limpiada manualmente', 'log-system');
+        });
+
+        $('btnSkip').addEventListener('click', () => {
+            this.tts.skip();
+            this.ui.addLog('Mensaje saltado', 'log-system');
+        });
+
+        $('btnPreview').addEventListener('click', () => {
+            const text = $('previewText').value.trim() || 'Probando el motor de audio.';
+            this.tts.preview(text);
+        });
+
+        // Config import/export
+        $('btnExportConfig').addEventListener('click', () => {
+            const blob = new Blob([JSON.stringify(this.config.data, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `twitch-reader-pro-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            this.ui.toast('Configuración exportada', 'success');
+        });
+
+        const fileIn = $('fileImportConfig');
+        $('btnImportConfig').addEventListener('click', () => fileIn.click());
+        fileIn.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const parsed = JSON.parse(ev.target.result);
+                    // Validate imported keys: only accept keys from DEFAULTS with matching types
+                    const validated = { ...DEFAULTS };
+                    Object.keys(DEFAULTS).forEach(k => {
+                        if (k in parsed && typeof parsed[k] === typeof DEFAULTS[k]) {
+                            validated[k] = parsed[k];
+                        }
+                    });
+                    this.config.data = validated;
+                    this.config.save();
+                    location.reload();
+                } catch {
+                    this.ui.toast('Error al leer el archivo JSON.', 'error');
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        $('btnResetConfig').addEventListener('click', () => {
+            if (confirm('¿Restablecer de fábrica y perder toda tu configuración?')) {
+                this.config.reset();
+                location.reload();
+            }
+        });
+
+        // Lists management
+        $('btnAddBlacklist').addEventListener('click', () => this.ui.addToList('blacklist', 'inputBlacklist', 'blacklistTags'));
+        $('inputBlacklist').addEventListener('keypress', e => {
+            if (e.key === 'Enter') this.ui.addToList('blacklist', 'inputBlacklist', 'blacklistTags');
+        });
+        $('btnClearBlacklist').addEventListener('click', () => {
+            this.config.data.blacklist = [];
+            this.config.save();
+            this.ui.renderTags('blacklistTags', []);
+        });
+
+        $('btnAddWhitelist').addEventListener('click', () => this.ui.addToList('whitelist', 'inputWhitelist', 'whitelistTags'));
+        $('inputWhitelist').addEventListener('keypress', e => {
+            if (e.key === 'Enter') this.ui.addToList('whitelist', 'inputWhitelist', 'whitelistTags');
+        });
+        $('btnClearWhitelist').addEventListener('click', () => {
+            this.config.data.whitelist = [];
+            this.config.save();
+            this.ui.renderTags('whitelistTags', []);
+        });
+
+        // Log clear
+        $('btnLogClear').addEventListener('click', () => {
+            this.ui.elements.logBody.innerHTML = '';
+        });
+
+        // Global keyboard shortcuts
+        document.addEventListener('keydown', e => {
+            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+            if (e.key === ' ' || e.code === 'Space') {
+                e.preventDefault();
+                this.tts.skip();
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                this.tts.clear();
+            }
+        });
+    }
+
+    processRawMessage(raw) {
+        let line = raw;
+        let tags = {};
+
+        // Parse IRC tags
+        if (line.startsWith('@')) {
+            const spaceIdx = line.indexOf(' ');
+            if (spaceIdx > -1) {
+                line.substring(1, spaceIdx).split(';').forEach(tag => {
+                    const eq = tag.indexOf('=');
+                    if (eq > -1) {
+                        const key = tag.slice(0, eq);
+                        const value = tag.slice(eq + 1)
+                            .replace(/\\s/g, ' ')
+                            .replace(/\\:/g, ';')
+                            .replace(/\\\\/g, '\\');
+                        tags[key] = value;
+                    }
+                });
+                line = line.substring(spaceIdx + 1);
+            }
+        }
+
+        const colonIdx = line.indexOf(' :', 1);
+        if (colonIdx === -1) return;
+
+        const text = line.substring(colonIdx + 2);
+        const name = tags['display-name'] || 'Usuario';
+        const color = tags['color'] || '#9147ff';
+        const bits = parseInt(tags['bits'] || '0', 10);
+        const badges = tags['badges'] || '';
+
+        const roles = {
+            isMod: badges.includes('moderator/'),
+            isVip: badges.includes('vip/'),
+            isSub: badges.includes('subscriber/') || badges.includes('founder/'),
+            isBroadcaster: badges.includes('broadcaster/')
+        };
+
+        const result = this.evaluateMessage(name, text, bits, roles);
+        this.logMessage(name, text, bits, color, result);
+
+        if (!result.allowed) return;
+
+        let clean = this.sanitizeText(text, tags['emotes']);
+        const max = this.config.data.maxChars;
+        if (clean.length > max) clean = clean.slice(0, max);
+        if (!clean && bits === 0) return;
+
+        this.tts.enqueue({
+            displayName: name,
+            originalText: text,
+            cleanText: clean || '(vacío)',
+            color,
+            bits,
+            ...roles
+        });
+    }
+
+    evaluateMessage(name, text, bits, roles) {
+        const config = this.config.data;
+        const lName = name.toLowerCase();
+
+        // Check blacklist
+        if (config.blacklist.some(n => n.toLowerCase() === lName)) {
+            return { allowed: false, reason: 'Lista negra' };
+        }
+
+        // Check exemptions (roles that bypass filters)
+        const isExempt = (config.alwaysMod && roles.isMod) ||
+                         (config.alwaysVip && roles.isVip) ||
+                         (config.alwaysSub && roles.isSub) ||
+                         (config.alwaysBroadcaster && roles.isBroadcaster);
+
+        // Whitelist mode check
+        if (config.whitelistMode && !config.whitelist.some(n => n.toLowerCase() === lName) && !isExempt) {
+            return { allowed: false, reason: 'No en whitelist' };
+        }
+
+        // Bits requirement check
+        if (config.bitsOnly && bits < config.minBits && !isExempt) {
+            return { allowed: false, reason: 'Bits insuficientes' };
+        }
+
+        // Command filter (exempt roles bypass this too)
+        if (config.ignoreCommands && text.trim().startsWith('!') && !isExempt) {
+            return { allowed: false, reason: 'Comando ignorado' };
+        }
+
+        return { allowed: true };
+    }
+
+    sanitizeText(text, emotes) {
+        const config = this.config.data;
+        let result = text;
+
+        // Remove emotes
+        if (config.ignoreEmotes && emotes) {
+            const remove = new Array(result.length).fill(false);
+            emotes.split('/').forEach(e => {
+                const parts = e.split(':');
+                if (parts[1]) {
+                    parts[1].split(',').forEach(r => {
+                        const [start, end] = r.split('-').map(Number);
+                        for (let i = start; i <= end; i++) {
+                            if (i < result.length) remove[i] = true;
+                        }
+                    });
+                }
+            });
+            result = [...result].filter((_, i) => !remove[i]).join('');
+        }
+
+        // Remove URLs (only match explicit protocols and www. prefixes to avoid false positives)
+        if (config.ignoreUrls) {
+            result = result.replace(/(https?:\/\/[^\s]+|www\.[^\s]+)/gi, '');
+        }
+
+        // Normalize text
+        result = result
+            .replace(/(.)\1{3,}/gi, '$1$1$1')  // Reduce letter spam
+            .replace(/\b(lol|lmao|kekw|xd+|omegalul)\b/gi, 'jaja')  // Translate slang
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return result;
+    }
+
+    logMessage(name, text, bits, color, result) {
+        const safeText = escapeHtml(text);
+        const safeName = escapeHtml(name);
+        const safeColor = this.ui.isValidColor(color) ? color : 'var(--twitch)';
+
+        let html = '';
+        if (bits > 0) html += `<span class="log-bits">[${bits} bits] </span>`;
+        html += `<span class="log-user" style="color:${safeColor}">${safeName}</span>: <span>${safeText}</span>`;
+        if (!result.allowed) html += ` <span class="log-filtered">[${escapeHtml(result.reason)}]</span>`;
+
+        this.ui.addLog(html, result.allowed ? '' : 'log-filtered');
+    }
+}
+
+// ============================================================================
+// Initialize Application
+// ============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    window.app = new App();
+    window.app.init();
+});
+</script>
+</body>
+</html>
